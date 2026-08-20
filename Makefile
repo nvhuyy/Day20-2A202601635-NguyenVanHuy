@@ -16,10 +16,10 @@ typecheck:
 	mypy src
 
 run-baseline:
-	python -m multi_agent_research_lab.cli baseline --query "Research GraphRAG state-of-the-art"
+	set PYTHONPATH=src&& python -m multi_agent_research_lab.cli baseline --query "Research GraphRAG state-of-the-art"
 
 run-multi:
-	python -m multi_agent_research_lab.cli multi-agent --query "Research GraphRAG state-of-the-art"
+	set PYTHONPATH=src&& python -m multi_agent_research_lab.cli multi-agent --query "Research GraphRAG state-of-the-art"
 
 clean:
 	rm -rf .pytest_cache .ruff_cache .mypy_cache dist build *.egg-info

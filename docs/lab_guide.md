@@ -113,5 +113,36 @@ Cách khắc phục (chọn 1 trong 3):
 
 Mỗi nhóm trả lời 2 câu:
 
-1. Case nào nên dùng multi-agent? Vì sao?
-2. Case nào không nên dùng multi-agent? Vì sao?
+### 1. Case nào nên dùng multi-agent? Vì sao?
+
+**Case cụ thể:**
+Hệ thống nghiên cứu tổng hợp và thẩm định thông tin chuyên sâu (**Deep Research & Fact-checking Report**), ví dụ: *"Nghiên cứu hiện trạng công nghệ GraphRAG năm 2026, so sánh ưu nhược điểm với Vector RAG truyền thống và lập bảng phân tích các giải pháp nguồn mở tiêu biểu kèm trích dẫn nguồn"*.
+
+**Lý do (dựa trên kết quả thực nghiệm và số liệu benchmark):**
+1. **Tách biệt trách nhiệm (Role Specialization & Context Isolation):**
+   - Thay vì ép một LLM duy nhất vừa nhớ kiến thức nền, vừa search web, vừa lọc dữ liệu, vừa phản biện và viết văn, mô hình Multi-Agent chia việc thành các vai trò chuyên biệt:
+     - `Researcher`: Tập trung query retrieval, làm sạch snippet và giữ provenance URL.
+     - `Analyst`: Khách quan so sánh các tuyên bố, phát hiện mâu thuẫn giữa các nguồn và đánh giá độ tươi mới/độ tin cậy của tài liệu.
+     - `Writer`: Chỉ sử dụng bằng chứng đã được thẩm định từ Shared State để sinh câu trả lời kèm citation `[1]`, `[2]`, triệt tiêu hallucination trích dẫn.
+2. **Kiểm soát chất lượng và giảm Hallucination (High Groundedness):**
+   - Theo kết quả benchmark, Multi-Agent đạt **Citation Coverage ~90-100%** so với mức 0% (hoặc trích dẫn nguồn giả) của Single-Agent baseline không có tool.
+   - Điểm chất lượng nội dung đạt **9.0/10** so với **6.0/10** của baseline.
+3. **Khả năng quan sát & Khắc phục lỗi từng chặng (Traceability & Debuggability):**
+   - Nhờ Langfuse / LangSmith tracing trên từng node (`supervisor` -> `researcher` -> `analyst` -> `writer`), khi có sự cố (ví dụ search trả về rác hoặc LLM phân tích sai), ta có thể xác định chính xác mắt xích bị lỗi và thêm fallback/guardrail mà không làm hỏng toàn bộ pipeline.
+
+---
+
+### 2. Case nào không nên dùng multi-agent? Vì sao?
+
+**Case cụ thể:**
+Các tác vụ đơn bước, trả lời nhanh theo thời gian thực (**Real-time Conversational Q&A / Low-latency Tasks**), ví dụ: *"Tóm tắt đoạn văn bản 200 từ dưới đây"*, *"Giải thích khái niệm Decorator trong Python"*, hoặc *"Viết lại đoạn email sau cho lịch sự hơn"*.
+
+**Lý do:**
+1. **Độ trễ tích lũy quá lớn (Latency Overhead):**
+   - Multi-agent yêu cầu nhiều lượt gọi LLM tuần tự (Supervisor -> Researcher -> Supervisor -> Analyst -> Supervisor -> Writer), cộng thêm độ trễ I/O từ Search API.
+   - Thời gian phản hồi tăng từ **~1.2s - 2.5s (Baseline)** lên **~8s - 16s (Multi-agent)**, hoàn toàn không phù hợp với các ứng dụng interactive chat yêu cầu phản hồi < 2s.
+2. **Chi phí Token và API tăng vọt (Token Cost Explosion):**
+   - Mỗi lần handoff giữa các agent, toàn bộ thông tin ngữ cảnh (`research_notes`, `sources`, `analysis_notes`) phải được gửi kèm trong prompt của agent tiếp theo.
+   - Lượng token tiêu thụ tăng gấp **3 - 6 lần** so với một single call, dẫn đến chi phí vận hành tăng vọt mà không mang lại giá trị gia tăng tương xứng cho các câu hỏi đơn giản.
+3. **Nguy cơ lỗi điều phối & Phức tạp hóa hệ thống (Over-engineering & Failure Modes):**
+   - Phát sinh thêm các điểm rủi ro: routing loop, supervisor phân nhánh sai, format JSON handoff không khớp schema. Với các tác vụ đơn giản, một prompt được tối ưu tốt (hoặc chain đơn giản) luôn ổn định, rẻ và hiệu quả hơn nhiều.
